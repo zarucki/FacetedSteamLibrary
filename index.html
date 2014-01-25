@@ -1,0 +1,35 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <title>Index</title>
+        <script src="jquery-2.1.0.min.js" type="text/javascript" charset="utf-8"></script>
+    </head>
+<body>
+    <form action="index_submit" method="get" accept-charset="utf-8">
+        <label for="steam-id"><a href="http://steamid.co/" target="_blank">STEAM64 ID</a>:</label>
+        <input type="text" name="steam-id" value="" id="steam-id" placeholder="your steam id" required>
+        <p><input type="submit" value="Fetch games"></p>
+    </form>
+    <script type="text/javascript" charset="utf-8">
+        $('form').submit(function (event) {
+            event.preventDefault();
+
+            var steamId = $('#steam-id').val();
+            if (!steamId) {
+                return;
+            }
+
+            var request = $.ajax('http://localhost:89', { data: {steamUserId: steamId }, dataType: 'json', accepts: 'application/json' });
+
+            request.done(function (data) {
+                console.log('data', data);
+            });
+
+            request.error(function () {
+                console.log('arguments', arguments);
+            });
+        });
+    </script>
+</body>
+</html>
