@@ -17,7 +17,7 @@ function getSteamApiKey()
 function getSteamUserLibraryList(steamUserId, response) {
   response.setHeader("Content-Type", "application/json");
 
-  var path = util.format('%s?key=%s&steamid=%s&format=json&include_appinfo=1&include_played_free_games=0', 
+  var path = util.format('%s?key=%s&steamid=%s&include_appinfo=1&include_played_free_games=0', 
       '/IPlayerService/GetOwnedGames/v0001/',
       steamApiKey,
       steamUserId);
