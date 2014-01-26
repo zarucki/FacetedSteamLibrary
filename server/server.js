@@ -1,6 +1,7 @@
 var http = require('http');
 var util = require('util');
 var url = require('url');
+var _ = require('underscore');
 
 var app = http.createServer(handler);
 app.listen(89);
@@ -14,10 +15,14 @@ function getSteamApiKey()
   return contentsOfFile.replace(/[^a-zA-Z0-9]/g, '');
 }
 
+function getGamesDetails(gameList) {
+    
+}
+
 function getSteamUserLibraryList(steamUserId, response) {
   response.setHeader("Content-Type", "application/json");
 
-  var path = util.format('%s?key=%s&steamid=%s&include_appinfo=1&include_played_free_games=0', 
+  var path = util.format('%s?key=%s&steamid=%s&include_played_free_games=0', 
       '/IPlayerService/GetOwnedGames/v0001/',
       steamApiKey,
       steamUserId);
@@ -33,14 +38,18 @@ function getSteamUserLibraryList(steamUserId, response) {
     var result = '';
     response.writeHead(200);
     // TODO: should i worry about encoding?
-    // res.setEncoding('binary');
+    res.setEncoding('utf-8');
 
     res.on('data', function(chunk) {
       // encoding here is optional parameter
-      response.write(chunk)
+      result += chunk;
+      //response.write(chunk)
     });
 
     res.on('end', function() {
+      var object = JSON.parse(result);
+      console.log('game count', object.response.game_count);
+      console.log('first game from list', object.response.games[0]);
       console.log('done');
       response.end();
     });
