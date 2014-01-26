@@ -16,22 +16,20 @@ function getSteamApiKey()
 }
 
 function getGamesDetails(gameList, response) {
-  var appIdsToFetch = _.pluck(gameList, 'appid');
-  var gameDetails = {};
-  var gamesCount = appIdsToFetch.length;
+  var gamesCount = gameList.length;
   var countPerRequest = 50;
 
   var callback = collectAllData(gamesCount, response);
 
-  while (appIdsToFetch.length > 0)
+  while (gameList.length > 0)
   {
     // to not spam with request we wait couple seconds between them
     _.delay(getGameDetailsForAppIds, 3000, 
-        appIdsToFetch.slice(0, countPerRequest), 
+        gameList.slice(0, countPerRequest), 
         callback
     );
 
-    appIdsToFetch = appIdsToFetch.slice(countPerRequest);
+    gameList = gameList.slice(countPerRequest);
   }
 }
 
@@ -39,7 +37,7 @@ function collectAllData(gamesCount, response) {
   var  fetchedGames = [];
   var fetchedCount = 0;
 
-  return function (statusCode, gamesDetails) {
+  return function (statusCode, gamesDetails, appIdLibraryData) {
     if (statusCode !== 200) {
       response.writeHead(statusCode);
       response.end();
@@ -48,6 +46,13 @@ function collectAllData(gamesCount, response) {
 
     var numberOfGamesFetched = _.size(gamesDetails);
     fetchedCount += numberOfGamesFetched;
+
+    var libraryData = _.indexBy(appIdLibraryData, 'appid');
+
+    _.each(gamesDetails, function (value, key, list) {
+      value.libraryData = libraryData[key];
+    });
+
     console.log(util.format('just got %s, together got %s/%s', numberOfGamesFetched, fetchedCount, gamesCount));
     fetchedGames.push(gamesDetails);
 
@@ -61,10 +66,10 @@ function collectAllData(gamesCount, response) {
   };
 }
 
-function getGameDetailsForAppIds(appIds, callback) {
+function getGameDetailsForAppIds(gameList, callback) {
   var commaSeparatedAppIdList = _.reduce(
-      appIds, 
-      function (memo, value) { return memo != '' ? memo + ',' + value : value }, 
+      gameList, 
+      function (memo, value) { return memo != '' ? memo + ',' + value.appid : value.appid }, 
       ''
   );
 
@@ -72,7 +77,7 @@ function getGameDetailsForAppIds(appIds, callback) {
     '/api/appdetails/',
     commaSeparatedAppIdList);
 
-  console.log(util.format('sending request for %s appIds', appIds.length));
+  console.log(util.format('sending request for %s appIds', gameList.length));
   http.get({ host: 'store.steampowered.com', port: 80, path: path }, function (res) {
     if(res.statusCode !== 200) {
       callback(res.statusCode, null);
@@ -88,13 +93,13 @@ function getGameDetailsForAppIds(appIds, callback) {
 
     res.on('end', function() {
       var object = JSON.parse(result);
-      callback(res.statusCode, object);
+      callback(res.statusCode, object, gameList);
     });
   });
 }
 
 function getSteamUserLibraryList(steamUserId, response) {
-  var path = util.format('%s?key=%s&steamid=%s&include_played_free_games=0', 
+  var path = util.format('%s?key=%s&steamid=%s&include_played_free_games=0&include_appinfo=1', 
     '/IPlayerService/GetOwnedGames/v0001/',
     steamApiKey,
     steamUserId);
