@@ -15,43 +15,109 @@ function getSteamApiKey()
   return contentsOfFile.replace(/[^a-zA-Z0-9]/g, '');
 }
 
-function getGamesDetails(gameList) {
-    
+function getGamesDetails(gameList, response) {
+  var appIdsToFetch = _.pluck(gameList, 'appid');
+  var gameDetails = {};
+  var gamesCount = appIdsToFetch.length;
+  var countPerRequest = 50;
+
+  var callback = collectAllData(gamesCount, response);
+
+  while (appIdsToFetch.length > 0)
+  {
+    // to not spam with request we wait couple seconds between them
+    _.delay(getGameDetailsForAppIds, 3000, 
+        appIdsToFetch.slice(0, countPerRequest), 
+        callback
+    );
+
+    appIdsToFetch = appIdsToFetch.slice(countPerRequest);
+  }
+}
+
+function collectAllData(gamesCount, response) {
+  var  fetchedGames = [];
+  var fetchedCount = 0;
+
+  return function (statusCode, gamesDetails) {
+    if (statusCode !== 200) {
+      response.writeHead(statusCode);
+      response.end();
+      return;
+    }
+
+    var numberOfGamesFetched = _.size(gamesDetails);
+    fetchedCount += numberOfGamesFetched;
+    console.log(util.format('just got %s, together got %s/%s', numberOfGamesFetched, fetchedCount, gamesCount));
+    fetchedGames.push(gamesDetails);
+
+    if (fetchedCount == gamesCount) {
+      console.log('done');
+      var finalResult = _.reduce(fetchedGames, function (memo, value) { return _.extend(memo, value); }, {});
+      response.setHeader("Content-Type", "application/json");
+      response.writeHead(200);
+      response.end(JSON.stringify(finalResult))
+    }
+  };
+}
+
+function getGameDetailsForAppIds(appIds, callback) {
+  var commaSeparatedAppIdList = _.reduce(
+      appIds, 
+      function (memo, value) { return memo != '' ? memo + ',' + value : value }, 
+      ''
+  );
+
+  var path = util.format('%s?appids=%s&cc=pl&l=english', 
+    '/api/appdetails/',
+    commaSeparatedAppIdList);
+
+  console.log(util.format('sending request for %s appIds', appIds.length));
+  http.get({ host: 'store.steampowered.com', port: 80, path: path }, function (res) {
+    if(res.statusCode !== 200) {
+      callback(res.statusCode, null);
+      return;
+    }
+
+    var result = '';
+    res.setEncoding('utf-8');
+
+    res.on('data', function(chunk) {
+      result += chunk;
+    });
+
+    res.on('end', function() {
+      var object = JSON.parse(result);
+      callback(res.statusCode, object);
+    });
+  });
 }
 
 function getSteamUserLibraryList(steamUserId, response) {
-  response.setHeader("Content-Type", "application/json");
-
   var path = util.format('%s?key=%s&steamid=%s&include_played_free_games=0', 
-      '/IPlayerService/GetOwnedGames/v0001/',
-      steamApiKey,
-      steamUserId);
+    '/IPlayerService/GetOwnedGames/v0001/',
+    steamApiKey,
+    steamUserId);
 
-  http.get({host: 'api.steampowered.com', port: 80, path: path}, function(res) {
+  http.get({host: 'api.steampowered.com', port: 80, path: path}, function (res) {
     if(res.statusCode !== 200) {
-      console.log(res.statusCode);
       response.writeHead(res.statusCode);
       response.end();
       return;
     }
 
     var result = '';
-    response.writeHead(200);
-    // TODO: should i worry about encoding?
     res.setEncoding('utf-8');
 
     res.on('data', function(chunk) {
-      // encoding here is optional parameter
       result += chunk;
-      //response.write(chunk)
     });
 
     res.on('end', function() {
       var object = JSON.parse(result);
       console.log('game count', object.response.game_count);
-      console.log('first game from list', object.response.games[0]);
-      console.log('done');
-      response.end();
+
+      getGamesDetails(object.response.games, response);
     });
 
   });
