@@ -10,28 +10,168 @@
 <body>
     <form action="index_submit" method="get" accept-charset="utf-8">
         <label for="steam-id"><a href="http://steamid.co/" target="_blank">STEAM64 ID</a>:</label>
-        <input type="text" name="steam-id" value="" id="steam-id" placeholder="your steam id" required>
+        <input type="text" name="steam-id" value="" id="steam-id" placeholder="your steam id" autocomplete="on" required>
         <p><input type="submit" value="Fetch games"></p>
     </form>
+    <div id="facets"></div>
+    <div id="results"></div>
     <script type="text/javascript" charset="utf-8">
-        $('form').submit(function (event) {
-            event.preventDefault();
-
-            var steamId = $('#steam-id').val();
-            if (!steamId) {
-                return;
+        var facetedSerach = function () {
+            function Game(fetchedObject, libraryData)
+            {
+                this.name = fetchedObject.name;
+                this.category = _.pluck(fetchedObject.categories, 'description');
+                this.genre = _.pluck(fetchedObject.genres, 'description');
+                this.developer = fetchedObject.developers;
+                this.controllerSupport = fetchedObject.controller_support || 'none'
+                this.playtime = libraryData.playtime_forever || 0;
+                this.headerImage = fetchedObject.header_image;
+                this.metacritic = fetchedObject.metacritic;
+                this.appid = fetchedObject.steam_appid;
+                // fetchedObject.about_the_game
+                // fetchedObject.reviews -- press quotes
+                // fetchedObject.publishers
+                // fetchedObject.price_overview
+                // fetchedObject.platforms
             }
 
-            var request = $.ajax('http://localhost:89', { data: {steamUserId: steamId }, dataType: 'json', accepts: 'application/json' });
-
-            request.done(function (data) {
+            function showLibrary(data)
+            {
                 console.log('data', data);
-            });
 
-            request.error(function () {
-                console.log('arguments', arguments);
+                // some games return success = false, some of them are test or betas some of them are 
+                // games no longer in store
+                var gamesWithStoreData = _.filter(data, function (value) { return value.data; });
+
+                var mappedData = _.map(gamesWithStoreData, function (value, key, list) {
+                    return new Game(value.data, value.libraryData);
+                });
+
+                var statistics = getInterestingStatistics(data);
+
+                var item_template = $('#item-template').text();
+
+                var settings = { 
+                    items : mappedData,
+                    facets : { 
+                        'category' : 'What Category',
+                        'genre' : 'What Genre',
+                        // 'developer' : 'What Developer',
+                        'controllerSupport' : 'Controller support'
+                    },  
+                    resultSelector  : '#results',
+                    facetSelector   : '#facets',
+                    resultTemplate  : item_template,
+                    orderByOptions  : {
+                        'name': 'Game name', 
+                        'category': 'Category', 
+                        'metacritic': 'Metacritic', 
+                        'RANDOM': 'Random'
+                    }
+                }   
+
+                $(function(){
+                    $.facetelize(settings);
+                });
+            }
+
+            function getInterestingStatistics(data)
+            {
+                var gamesNeverPlayed = 0;
+
+                var totalPlayTime = _.reduce(data, function(memo, value) { 
+                        if (!value.libraryData.playtime_forever) {
+                            // console.log(value.libraryData.name);
+                            gamesNeverPlayed++;
+                        }
+                        return memo + (value.libraryData.playtime_forever || 0); 
+                    }, 0);
+
+                return {
+                    totalGamesCount : _.size(data),
+                    totalPlayTimeMinutes : totalPlayTime,
+                    numberOfGamesNeverPlayed : gamesNeverPlayed
+                };
+            }
+
+            function saveDataInLocalStorage(key, data) {
+                var dataStringified = JSON.stringify(data);
+
+                try {
+                    localStorage.setItem(key, dataStringified);
+                } catch(err) {
+                    console.log('error: ', err);
+                    try {
+                        console.log('clearing all local storage and trying again');
+                        localStorage.clear();
+                        localStorage.setItem(key, dataStringified);
+                    } catch(err) {
+                        console.log('again error, probably too big data to store in local storage: ', err);
+                    }
+                }
+            }
+
+            $('form').submit(function (event) {
+                event.preventDefault();
+                var $self = $(this);
+
+                var steamId = $('#steam-id').val();
+                // better validation here?
+                if (!steamId) {
+                    return;
+                }
+
+                var localStorageKey = steamId + '_libraryData'
+
+                var data;
+                if (localStorage) {
+                    var localStorageData = localStorage.getItem(localStorageKey);
+                    data = localStorageData ? JSON.parse(localStorageData) : null;
+                }
+
+                if (data) {
+                    $self.fadeOut();
+                    showLibrary(data);
+                } else {
+                    var request = $.ajax('http://localhost:89', 
+                        { 
+                            data: { steamUserId: steamId }, 
+                            dataType: 'json', 
+                            accepts: 'application/json' 
+                        }
+                    );
+
+                    request.done(function (data) {
+                        if (localStorage) {
+                            saveDataInLocalStorage(localStorageKey, data);
+                        }
+
+                        $self.fadeOut();
+                        showLibrary(data);
+                    });
+
+                    request.error(function () {
+                        console.log('error, arguments: ', arguments);
+                    });
+                }
             });
-        });
+        }();
+    </script>
+
+    <script id='item-template' type="text/template" charset="utf-8">
+        <div class="item"> 
+            <a href="http://store.steampowered.com/app/<%= obj.appid %>" target="_blank">
+                <img src="<%= obj.headerImage %>">
+            </a> 
+            <h4><%= name %></h4>  
+            <p class="tags">  
+                <% if (obj.category) {  %><%= obj.category %><% } %> 
+                <% if (obj.genre) {  %>, <%= obj.continent %><% } %> 
+                <% if (obj.developer) {  %>, <%= obj.language %><% } %> 
+                <% if (obj.controller_support) {  %>, <%= obj.controller_support %><% } %> 
+            </p> 
+            <!--<p class="desc"><%= obj.description %></p> -->
+        </div>;
     </script>
 </body>
 </html>
