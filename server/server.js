@@ -138,6 +138,7 @@ function handler (req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
+  // TODO: Some validation of steamUserId would be usefull 17 characters etc
   if (queryData.steamUserId) {
     getSteamUserLibraryList(queryData.steamUserId, res);
   } else {
