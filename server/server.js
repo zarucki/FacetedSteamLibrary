@@ -139,6 +139,9 @@ function handler (req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   // TODO: Some validation of steamUserId would be usefull 17 characters etc
+  // TODO: Some game appid request fail, store redirects them to other page
+  // TODO: Add port where the server starts to server arguments
+  // TODO: https://github.com/caolan/async use this?
   if (queryData.steamUserId) {
     getSteamUserLibraryList(queryData.steamUserId, res);
   } else {
