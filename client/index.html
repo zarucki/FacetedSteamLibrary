@@ -27,7 +27,9 @@
                 this.controllerSupport = fetchedObject.controller_support || 'none'
                 this.playtime = libraryData.playtime_forever || 0;
                 this.headerImage = fetchedObject.header_image;
-                this.metacritic = fetchedObject.metacritic;
+                this.metacritic = fetchedObject.metacritic ? fetchedObject.metacritic.score : -1;
+                this.metacriticUrl = fetchedObject.metacritic ? fetchedObject.metacritic.url : '';
+                this.negativeMetaCritic = - this.metacritic;
                 this.appid = fetchedObject.steam_appid;
                 // fetchedObject.about_the_game
                 // fetchedObject.reviews -- press quotes
@@ -66,7 +68,7 @@
                     orderByOptions  : {
                         'name': 'Game name', 
                         'category': 'Category', 
-                        'metacritic': 'Metacritic', 
+                        'negativeMetaCritic': 'Metacritic', 
                         'RANDOM': 'Random'
                     }
                 }   
@@ -164,7 +166,7 @@
             <a href="http://store.steampowered.com/app/<%= obj.appid %>" target="_blank">
                 <img src="<%= obj.headerImage %>">
             </a> 
-            <h4><%= name %></h4>  
+            <h4><%= name %> ( <a href="<%= metacriticUrl %>" target="_blank"> <%= metacritic %> </a>)</h4>  
             <p class="tags">  
                 <% if (obj.category) {  %><%= obj.category %><% } %> 
                 <% if (obj.genre) {  %>, <%= obj.continent %><% } %> 
@@ -176,5 +178,8 @@
     </script>
     <!-- // TODO: some refresh or clean local data button -->
     <!-- // TODO: some spinner when waiting for server -->
+    <!-- // TODO: display metascore somewhere visible -->
+    <!-- // TODO: maybe change template engine to mustache? -->
+    <!-- // TODO: work on css, make the look and feel more like steam client -->
 </body>
 </html>
